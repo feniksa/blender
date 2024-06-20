@@ -8,6 +8,8 @@
 
 #  ifdef WITH_HIP_DYNLOAD
 #    include "hipew.h"
+#  else
+#    include <hip/hip_runtime.h>
 #  endif
 
 CCL_NAMESPACE_BEGIN
@@ -44,7 +46,11 @@ class HIPDeviceGraphicsInterop : public DeviceGraphicsInterop {
   /* The destination was requested to be cleared. */
   bool need_clear_ = false;
 
+#  ifdef WITH_HIP_DYNLOAD
   hipGraphicsResource hip_graphics_resource_ = nullptr;
+#  else
+  hipGraphicsResource_t hip_graphics_resource_ = nullptr;
+#  endif
 };
 
 CCL_NAMESPACE_END

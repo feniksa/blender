@@ -156,10 +156,14 @@ if(WITH_CYCLES_DEVICE_OPTIX OR WITH_CYCLES_DEVICE_CUDA)
   endif()
 endif()
 
-if(WITH_CYCLES_DEVICE_HIP AND WITH_HIP_DYNLOAD)
-  list(APPEND LIB
-    extern_hipew
-  )
+if(WITH_CYCLES_DEVICE_HIP)
+  if(WITH_HIP_DYNLOAD)
+    list(APPEND LIB
+      extern_hipew
+    )
+  else()
+    list(APPEND LIB hip::host)
+  endif()
 endif()
 
 if(WITH_CYCLES_DEVICE_METAL)
