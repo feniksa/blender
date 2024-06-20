@@ -10,6 +10,8 @@
 
 #  ifdef WITH_HIP_DYNLOAD
 #    include "hipew.h"
+#  else
+#    include <hip/hip_runtime.h>
 #  endif
 
 CCL_NAMESPACE_BEGIN

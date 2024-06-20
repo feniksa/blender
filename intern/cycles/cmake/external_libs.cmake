@@ -67,10 +67,6 @@ if(NOT WITH_CYCLES_DEVICE_HIP)
   set(WITH_CYCLES_DEVICE_HIPRT OFF)
 endif()
 
-if(NOT WITH_HIP_DYNLOAD)
-  set(WITH_HIP_DYNLOAD ON)
-endif()
-
 ###########################################################################
 # Metal
 ###########################################################################

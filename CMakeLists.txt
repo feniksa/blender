@@ -708,6 +708,7 @@ endif()
 if(NOT APPLE AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64"))
   option(WITH_CYCLES_DEVICE_HIP "Enable Cycles AMD HIP support" ON)
   option(WITH_CYCLES_HIP_BINARIES "Build Cycles AMD HIP binaries" OFF)
+  option(WITH_HIP_DYNLOAD "Use dynload to load AMD HIP library" ON)
   # Radeon VII (gfx906) not currently working with HIP SDK, so left out of the list.
   set(CYCLES_HIP_BINARIES_ARCH
     gfx900 gfx90c gfx902
@@ -1314,12 +1315,6 @@ if(WITH_CYCLES AND WITH_CYCLES_DEVICE_CUDA AND NOT WITH_CUDA_DYNLOAD)
     set(WITH_CUDA_DYNLOAD ON)
   endif()
 endif()
-
-if(WITH_CYCLES_DEVICE_HIP)
-  # Currently HIP must be dynamically loaded, this may change in future toolkits
-  set(WITH_HIP_DYNLOAD ON)
-endif()
-
 
 # -----------------------------------------------------------------------------
 # Check if Sub-modules are Cloned

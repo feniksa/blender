@@ -258,6 +258,9 @@ if(WITH_CYCLES_DEVICE_HIP)
       ../../extern/hipew/include
     )
     add_definitions(-DWITH_HIP_DYNLOAD)
+  else()
+    find_package(hip REQUIRED)
+    add_definitions(-DCYCLES_HIP_HIPCC_EXECUTABLE="${hip_HIPCC_EXECUTABLE}")
   endif()
 endif()
 

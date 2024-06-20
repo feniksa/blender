@@ -2,6 +2,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 */
 
+#include "../../../../lib/linux_x64/ffmpeg/include/libavutil/mathematics.h"
 #ifdef WITH_HIP
 
 #  include <climits>
@@ -26,6 +27,10 @@
 
 #  include "kernel/device/hip/globals.h"
 
+#  ifndef WITH_HIP_DYNLOAD
+#    include <hip/driver_types.h>
+     using hArray = hipArray_t;
+#  endif
 CCL_NAMESPACE_BEGIN
 
 class HIPDevice;
@@ -741,9 +746,9 @@ void HIPDevice::tex_alloc(device_texture &mem)
 
     HIP_MEMCPY3D param;
     memset(&param, 0, sizeof(HIP_MEMCPY3D));
-    param.dstMemoryType = get_memory_type(hipMemoryTypeArray);
+    param.dstMemoryType = hipMemoryTypeArray;
     param.dstArray = array_3d;
-    param.srcMemoryType = get_memory_type(hipMemoryTypeHost);
+    param.srcMemoryType = hipMemoryTypeHost;
     param.srcHost = mem.host_pointer;
     param.srcPitch = src_pitch;
     param.WidthInBytes = param.srcPitch;
@@ -773,10 +778,10 @@ void HIPDevice::tex_alloc(device_texture &mem)
 
     hip_Memcpy2D param;
     memset(&param, 0, sizeof(param));
-    param.dstMemoryType = get_memory_type(hipMemoryTypeDevice);
+    param.dstMemoryType = hipMemoryTypeDevice;
     param.dstDevice = mem.device_pointer;
     param.dstPitch = dst_pitch;
-    param.srcMemoryType = get_memory_type(hipMemoryTypeHost);
+    param.srcMemoryType = hipMemoryTypeHost;
     param.srcHost = mem.host_pointer;
     param.srcPitch = src_pitch;
     param.WidthInBytes = param.srcPitch;
@@ -817,14 +822,13 @@ void HIPDevice::tex_alloc(device_texture &mem)
 
     if (array_3d) {
       resDesc.resType = hipResourceTypeArray;
-      resDesc.res.array.h_Array = array_3d;
-      resDesc.flags = 0;
+      resDesc.res.array.array = reinterpret_cast<hipArray_t>(array_3d);
     }
     else if (mem.data_height > 0) {
       resDesc.resType = hipResourceTypePitch2D;
       resDesc.res.pitch2D.devPtr = mem.device_pointer;
-      resDesc.res.pitch2D.format = format;
-      resDesc.res.pitch2D.numChannels = mem.data_elements;
+      resDesc.res.pitch2D.desc.f = convert(format);
+      resDesc.res.pitch2D.desc.w = mem.data_elements;
       resDesc.res.pitch2D.height = mem.data_height;
       resDesc.res.pitch2D.width = mem.data_width;
       resDesc.res.pitch2D.pitchInBytes = dst_pitch;
@@ -832,8 +836,8 @@ void HIPDevice::tex_alloc(device_texture &mem)
     else {
       resDesc.resType = hipResourceTypeLinear;
       resDesc.res.linear.devPtr = mem.device_pointer;
-      resDesc.res.linear.format = format;
-      resDesc.res.linear.numChannels = mem.data_elements;
+      resDesc.res.linear.desc.f = convert(format);
+      resDesc.res.linear.desc.w = mem.data_elements;
       resDesc.res.linear.sizeInBytes = mem.device_size;
     }
 
@@ -843,17 +847,21 @@ void HIPDevice::tex_alloc(device_texture &mem)
     texDesc.addressMode[1] = address_mode;
     texDesc.addressMode[2] = address_mode;
     texDesc.filterMode = filter_mode;
-    texDesc.flags = HIP_TRSF_NORMALIZED_COORDINATES;
+    texDesc.readMode = hipReadModeNormalizedFloat;
 
     thread_scoped_lock lock(device_mem_map_mutex);
     cmem = &device_mem_map[&mem];
 
-    if (hipTexObjectCreate(&cmem->texobject, &resDesc, &texDesc, NULL) != hipSuccess) {
+    hipTextureObject_t texobject = nullptr;
+    if (hipTexObjectCreate(&texobject,
+      reinterpret_cast<const HIP_RESOURCE_DESC*>(&resDesc),
+      reinterpret_cast<HIP_TEXTURE_DESC*>(&texDesc),
+      NULL) != hipSuccess) {
       set_error(
           "Failed to create texture. Maximum GPU texture size or available GPU memory was likely "
           "exceeded.");
     }
-
+    cmem->texobject = reinterpret_cast<unsigned long long>(texobject);
     texture_info[slot].data = (uint64_t)cmem->texobject;
   }
   else {
@@ -871,7 +879,7 @@ void HIPDevice::tex_free(device_texture &mem)
 
     if (cmem.texobject) {
       /* Free bindless texture. */
-      hipTexObjectDestroy(cmem.texobject);
+      hipTexObjectDestroy(reinterpret_cast<hipTextureObject_t>(cmem.texobject));
     }
 
     if (!mem.is_resident(this)) {
@@ -964,9 +972,22 @@ int HIPDevice::get_device_default_attribute(hipDeviceAttribute_t attribute, int 
   return value;
 }
 
-hipMemoryType HIPDevice::get_memory_type(hipMemoryType mem_type)
+hipChannelFormatKind HIPDevice::convert(const hipArray_Format format)
 {
-  return get_hip_memory_type(mem_type, hipRuntimeVersion);
+      switch (format) {
+        case HIP_AD_FORMAT_FLOAT:
+          return hipChannelFormatKindFloat;
+        case HIP_AD_FORMAT_SIGNED_INT8:
+        case HIP_AD_FORMAT_SIGNED_INT16:
+        case HIP_AD_FORMAT_SIGNED_INT32:
+          return hipChannelFormatKindSigned;
+        case HIP_AD_FORMAT_UNSIGNED_INT8:
+        case HIP_AD_FORMAT_UNSIGNED_INT16:
+        case HIP_AD_FORMAT_UNSIGNED_INT32:
+          return hipChannelFormatKindUnsigned;
+        default:
+          return hipChannelFormatKindNone;
+      }
 }
 
 CCL_NAMESPACE_END
