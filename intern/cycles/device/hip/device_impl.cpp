@@ -2,7 +2,6 @@
  *
  * SPDX-License-Identifier: Apache-2.0 */
 
-#include "../../../../lib/linux_x64/ffmpeg/include/libavutil/mathematics.h"
 #ifdef WITH_HIP
 
 #  include <climits>
@@ -27,10 +26,6 @@
 
 #  include "kernel/device/hip/globals.h"
 
-#  ifndef WITH_HIP_DYNLOAD
-#    include <hip/driver_types.h>
-     using hArray = hipArray_t;
-#  endif
 CCL_NAMESPACE_BEGIN
 
 class HIPDevice;
@@ -63,7 +58,7 @@ HIPDevice::HIPDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler, b
 {
   /* Verify that base class types can be used with specific backend types */
   static_assert(sizeof(texMemObject) == sizeof(hipTextureObject_t));
-  static_assert(sizeof(arrayMemObject) == sizeof(hArray));
+  static_assert(sizeof(arrayMemObject) == sizeof(hipArray_t));
 
   first_error = true;
 
@@ -652,31 +647,31 @@ void HIPDevice::tex_alloc(device_texture &mem)
   size_t dsize = datatype_size(mem.data_type);
   size_t size = mem.memory_size();
 
-  hipTextureAddressMode address_mode = hipAddressModeWrap;
+  HIPaddress_mode_enum address_mode = HIP_TR_ADDRESS_MODE_WRAP;
   switch (mem.info.extension) {
     case EXTENSION_REPEAT:
-      address_mode = hipAddressModeWrap;
+      address_mode = HIP_TR_ADDRESS_MODE_WRAP;
       break;
     case EXTENSION_EXTEND:
-      address_mode = hipAddressModeClamp;
+      address_mode = HIP_TR_ADDRESS_MODE_CLAMP;
       break;
     case EXTENSION_CLIP:
-      address_mode = hipAddressModeBorder;
+      address_mode = HIP_TR_ADDRESS_MODE_BORDER;
       break;
     case EXTENSION_MIRROR:
-      address_mode = hipAddressModeMirror;
+      address_mode = HIP_TR_ADDRESS_MODE_MIRROR;
       break;
     default:
       assert(0);
       break;
   }
 
-  hipTextureFilterMode filter_mode;
+  HIPfilter_mode filter_mode;
   if (mem.info.interpolation == INTERPOLATION_CLOSEST) {
-    filter_mode = hipFilterModePoint;
+    filter_mode = HIP_TR_FILTER_MODE_POINT;
   }
   else {
-    filter_mode = hipFilterModeLinear;
+    filter_mode = HIP_TR_FILTER_MODE_LINEAR;
   }
 
   /* Image Texture Storage */
@@ -706,7 +701,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
   }
 
   Mem *cmem = NULL;
-  hArray array_3d = NULL;
+  hipArray_t array_3d = NULL;
   size_t src_pitch = mem.data_width * dsize * mem.data_elements;
   size_t dst_pitch = src_pitch;
 
@@ -716,7 +711,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
     cmem->texobject = 0;
 
     if (mem.data_depth > 1) {
-      array_3d = (hArray)mem.device_pointer;
+      array_3d = (hipArray_t)mem.device_pointer;
       cmem->array = reinterpret_cast<arrayMemObject>(array_3d);
     }
     else if (mem.data_height > 0) {
@@ -738,7 +733,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
               << string_human_readable_number(mem.memory_size()) << " bytes. ("
               << string_human_readable_size(mem.memory_size()) << ")";
 
-    hip_assert(hipArray3DCreate((hArray *)&array_3d, &desc));
+    hip_assert(hipArray3DCreate((hipArray_t *)&array_3d, &desc));
 
     if (!array_3d) {
       return;
@@ -746,9 +741,9 @@ void HIPDevice::tex_alloc(device_texture &mem)
 
     HIP_MEMCPY3D param;
     memset(&param, 0, sizeof(HIP_MEMCPY3D));
-    param.dstMemoryType = hipMemoryTypeArray;
+    param.dstMemoryType = get_memory_type(hipMemoryTypeArray);
     param.dstArray = array_3d;
-    param.srcMemoryType = hipMemoryTypeHost;
+    param.srcMemoryType = get_memory_type(hipMemoryTypeHost);
     param.srcHost = mem.host_pointer;
     param.srcPitch = src_pitch;
     param.WidthInBytes = param.srcPitch;
@@ -778,10 +773,10 @@ void HIPDevice::tex_alloc(device_texture &mem)
 
     hip_Memcpy2D param;
     memset(&param, 0, sizeof(param));
-    param.dstMemoryType = hipMemoryTypeDevice;
+    param.dstMemoryType = get_memory_type(hipMemoryTypeDevice);
     param.dstDevice = reinterpret_cast<hipDeviceptr_t>(mem.device_pointer);
     param.dstPitch = dst_pitch;
-    param.srcMemoryType = hipMemoryTypeHost;
+    param.srcMemoryType = get_memory_type(hipMemoryTypeHost);
     param.srcHost = mem.host_pointer;
     param.srcPitch = src_pitch;
     param.WidthInBytes = param.srcPitch;
@@ -796,7 +791,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
       return;
     }
 
-    hip_assert(hipMemcpyHtoD(reinterpret_cast<hipDeviceptr_t>(mem.device_pointer), mem.host_pointer, size));
+    hip_assert(hipMemcpyHtoD(reinterpret_cast<hipDeviceptr_t*>(mem.device_pointer), mem.host_pointer, size));
   }
 
   /* Resize once */
@@ -817,51 +812,51 @@ void HIPDevice::tex_alloc(device_texture &mem)
       mem.info.data_type != IMAGE_DATA_TYPE_NANOVDB_FP16)
   {
     /* Bindless textures. */
-    hipResourceDesc resDesc;
+    //hipResourceDesc resDesc;
+    HIP_RESOURCE_DESC resDesc;
     memset(&resDesc, 0, sizeof(resDesc));
 
     if (array_3d) {
-      resDesc.resType = hipResourceTypeArray;
-      resDesc.res.array.array = reinterpret_cast<hipArray_t>(array_3d);
+      resDesc.resType = HIP_RESOURCE_TYPE_ARRAY;
+      resDesc.res.array.hArray = array_3d;
+      resDesc.flags = 0;
     }
     else if (mem.data_height > 0) {
-      resDesc.resType = hipResourceTypePitch2D;
+      resDesc.resType = HIP_RESOURCE_TYPE_PITCH2D;
       resDesc.res.pitch2D.devPtr = reinterpret_cast<hipDeviceptr_t>(mem.device_pointer);
-      resDesc.res.pitch2D.desc.f = convert(format);
-      resDesc.res.pitch2D.desc.w = mem.data_elements;
+      resDesc.res.pitch2D.format = format;
+      resDesc.res.pitch2D.numChannels = mem.data_elements;
       resDesc.res.pitch2D.height = mem.data_height;
       resDesc.res.pitch2D.width = mem.data_width;
       resDesc.res.pitch2D.pitchInBytes = dst_pitch;
     }
     else {
-      resDesc.resType = hipResourceTypeLinear;
+      resDesc.resType = HIP_RESOURCE_TYPE_LINEAR;
       resDesc.res.linear.devPtr = reinterpret_cast<hipDeviceptr_t>(mem.device_pointer);
-      resDesc.res.linear.desc.f = convert(format);
-      resDesc.res.linear.desc.w = mem.data_elements;
+      resDesc.res.linear.format = format;
+      resDesc.res.linear.numChannels = mem.data_elements;
       resDesc.res.linear.sizeInBytes = mem.device_size;
     }
 
-    hipTextureDesc texDesc;
+    HIP_TEXTURE_DESC texDesc;
     memset(&texDesc, 0, sizeof(texDesc));
     texDesc.addressMode[0] = address_mode;
     texDesc.addressMode[1] = address_mode;
     texDesc.addressMode[2] = address_mode;
     texDesc.filterMode = filter_mode;
-    texDesc.readMode = hipReadModeNormalizedFloat;
+    texDesc.flags = HIP_TRSF_NORMALIZED_COORDINATES;
 
     thread_scoped_lock lock(device_mem_map_mutex);
     cmem = &device_mem_map[&mem];
 
-    hipTextureObject_t texobject = nullptr;
-    if (hipTexObjectCreate(&texobject,
-      reinterpret_cast<const HIP_RESOURCE_DESC*>(&resDesc),
-      reinterpret_cast<HIP_TEXTURE_DESC*>(&texDesc),
-      NULL) != hipSuccess) {
+    hipTextureObject_t textureObject;
+    if (hipTexObjectCreate(&textureObject, &resDesc, &texDesc, NULL) != hipSuccess) {
       set_error(
           "Failed to create texture. Maximum GPU texture size or available GPU memory was likely "
           "exceeded.");
     }
-    cmem->texobject = reinterpret_cast<unsigned long long>(texobject);
+    cmem->texobject = reinterpret_cast<unsigned long long>(textureObject);
+
     texture_info[slot].data = (uint64_t)cmem->texobject;
   }
   else {
@@ -888,7 +883,7 @@ void HIPDevice::tex_free(device_texture &mem)
     }
     else if (cmem.array) {
       /* Free array. */
-      hipArrayDestroy(reinterpret_cast<hArray>(cmem.array));
+      hipArrayDestroy(reinterpret_cast<hipArray_t>(cmem.array));
       stats.mem_free(mem.device_size);
       mem.device_pointer = 0;
       mem.device_size = 0;
@@ -972,22 +967,13 @@ int HIPDevice::get_device_default_attribute(hipDeviceAttribute_t attribute, int 
   return value;
 }
 
-hipChannelFormatKind HIPDevice::convert(const hipArray_Format format)
+hipMemoryType HIPDevice::get_memory_type(hipMemoryType mem_type)
 {
-      switch (format) {
-        case HIP_AD_FORMAT_FLOAT:
-          return hipChannelFormatKindFloat;
-        case HIP_AD_FORMAT_SIGNED_INT8:
-        case HIP_AD_FORMAT_SIGNED_INT16:
-        case HIP_AD_FORMAT_SIGNED_INT32:
-          return hipChannelFormatKindSigned;
-        case HIP_AD_FORMAT_UNSIGNED_INT8:
-        case HIP_AD_FORMAT_UNSIGNED_INT16:
-        case HIP_AD_FORMAT_UNSIGNED_INT32:
-          return hipChannelFormatKindUnsigned;
-        default:
-          return hipChannelFormatKindNone;
-      }
+#  ifdef WITH_HIP_DYNLOAD
+     return get_hip_memory_type(mem_type, hipRuntimeVersion);
+#  else
+     return mem_type;
+#  endif
 }
 
 CCL_NAMESPACE_END
