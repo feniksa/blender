@@ -15,7 +15,6 @@
 #    include <hip/hip_runtime.h>
 #  endif
 
-
 CCL_NAMESPACE_BEGIN
 
 class HIPDevice;

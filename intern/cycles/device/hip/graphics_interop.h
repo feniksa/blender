@@ -46,11 +46,7 @@ class HIPDeviceGraphicsInterop : public DeviceGraphicsInterop {
   /* The destination was requested to be cleared. */
   bool need_clear_ = false;
 
-#  ifdef WITH_HIP_DYNLOAD
-  hipGraphicsResource hip_graphics_resource_ = nullptr;
-#  else
   hipGraphicsResource_t hip_graphics_resource_ = nullptr;
-#  endif
 };
 
 CCL_NAMESPACE_END
