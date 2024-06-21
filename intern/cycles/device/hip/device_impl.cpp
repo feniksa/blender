@@ -779,7 +779,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
     hip_Memcpy2D param;
     memset(&param, 0, sizeof(param));
     param.dstMemoryType = hipMemoryTypeDevice;
-    param.dstDevice = mem.device_pointer;
+    param.dstDevice = reinterpret_cast<hipDeviceptr_t>(mem.device_pointer);
     param.dstPitch = dst_pitch;
     param.srcMemoryType = hipMemoryTypeHost;
     param.srcHost = mem.host_pointer;
@@ -796,7 +796,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
       return;
     }
 
-    hip_assert(hipMemcpyHtoD(mem.device_pointer, mem.host_pointer, size));
+    hip_assert(hipMemcpyHtoD(reinterpret_cast<hipDeviceptr_t>(mem.device_pointer), mem.host_pointer, size));
   }
 
   /* Resize once */
@@ -826,7 +826,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
     }
     else if (mem.data_height > 0) {
       resDesc.resType = hipResourceTypePitch2D;
-      resDesc.res.pitch2D.devPtr = mem.device_pointer;
+      resDesc.res.pitch2D.devPtr = reinterpret_cast<hipDeviceptr_t>(mem.device_pointer);
       resDesc.res.pitch2D.desc.f = convert(format);
       resDesc.res.pitch2D.desc.w = mem.data_elements;
       resDesc.res.pitch2D.height = mem.data_height;
@@ -835,7 +835,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
     }
     else {
       resDesc.resType = hipResourceTypeLinear;
-      resDesc.res.linear.devPtr = mem.device_pointer;
+      resDesc.res.linear.devPtr = reinterpret_cast<hipDeviceptr_t>(mem.device_pointer);
       resDesc.res.linear.desc.f = convert(format);
       resDesc.res.linear.desc.w = mem.data_elements;
       resDesc.res.linear.sizeInBytes = mem.device_size;
