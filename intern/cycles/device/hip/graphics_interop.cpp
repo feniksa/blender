@@ -77,7 +77,7 @@ device_ptr HIPDeviceGraphicsInterop::map()
     need_clear_ = false;
   }
 
-  return reinterpret_cast<unsigned long long>(hip_buffer);
+  return reinterpret_cast<device_ptr>(hip_buffer);
 }
 
 void HIPDeviceGraphicsInterop::unmap()

@@ -16,10 +16,6 @@
 #  include <stdio.h>
 #endif
 
-#  ifdef WITH_HIP_DYNLOAD
-#    include "hipew.h"
-#  endif
-
 #include "util/defines.h"
 
 #ifndef __KERNEL_GPU__
@@ -46,7 +42,7 @@ typedef unsigned short ushort;
 #ifndef __KERNEL_GPU__
 /* Generic Memory Pointer */
 
-typedef unsigned long long device_ptr;
+typedef uint64_t device_ptr;
 #endif /* __KERNEL_GPU__ */
 
 ccl_device_inline size_t align_up(size_t offset, size_t alignment)
