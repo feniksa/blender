@@ -87,7 +87,7 @@ typedef uint64_t hipuint64_t;
 #endif
 
 #if defined(__x86_64) || defined(AMD64) || defined(_M_AMD64) || defined (__aarch64__) || defined(_M_ARM64) || defined(__ppc64__) || defined(__PPC64__)
-typedef unsigned long long hipDeviceptr_t;
+typedef unsigned long hipDeviceptr_t;
 #else
 typedef unsigned int hipDeviceptr_t;
 #endif
@@ -105,7 +105,8 @@ typedef int hipDevice_t;
 typedef struct ihipCtx_t* hipCtx_t;
 typedef struct ihipModule_t* hipModule_t;
 typedef struct ihipModuleSymbol_t* hipFunction_t;
-typedef struct hipArray* hArray;
+typedef struct hipArray* hArray_t;
+typedef struct hipArray* hipArray_t;
 typedef struct hipMipmappedArray_st* hipMipmappedArray_t;
 typedef struct ihipEvent_t* hipEvent_t;
 typedef struct ihipStream_t* hipStream_t;
@@ -144,6 +145,12 @@ typedef enum hipTextureFilterMode {
   hipFilterModeLinear = 1,
 } hipTextureFilterMode;
 
+typedef enum HIPfilter_mode {
+  HIP_TR_FILTER_MODE_POINT = 0,
+  HIP_TR_FILTER_MODE_LINEAR = 1,
+} HIPfilter_mode;
+
+
 typedef enum hipArray_Format {
   HIP_AD_FORMAT_UNSIGNED_INT8 = 0x01,
   HIP_AD_FORMAT_SIGNED_INT8 = 0x08,
@@ -161,6 +168,13 @@ typedef enum hipTextureAddressMode {
   hipAddressModeMirror = 2,
   hipAddressModeBorder = 3,
 } hipTextureAddressMode;
+
+typedef enum HIPaddress_mode_enum {
+  HIP_TR_ADDRESS_MODE_WRAP = 0,
+  HIP_TR_ADDRESS_MODE_CLAMP = 1,
+  HIP_TR_ADDRESS_MODE_BORDER = 2,
+  HIP_TR_ADDRESS_MODE_MIRROR = 3,
+} HIPaddress_mode_enum;
 
 /**
  * hip texture reference
@@ -728,11 +742,18 @@ typedef enum hipLimit_t {
   HIP_LIMIT_MAX,
 } hipLimit_t;
 
-typedef enum hipResourceType {
+/*typedef enum hipResourceType {
   hipResourceTypeArray = 0x00,
   hipResourceTypeMipmappedArray = 0x01,
   hipResourceTypeLinear = 0x02,
   hipResourceTypePitch2D = 0x03,
+} hipResourceType;*/
+
+typedef enum hipResourceType {
+  HIP_RESOURCE_TYPE_ARRAY = 0x00,
+  HIP_RESOURCE_TYPE_MIPMAPPED_ARRAY = 0x01,
+  HIP_RESOURCE_TYPE_LINEAR = 0x02,
+  HIP_RESOURCE_TYPE_PITCH2D = 0x03,
 } hipResourceType;
 
 typedef enum hipError_t {
@@ -800,7 +821,7 @@ typedef enum HIPdevice_P2PAttribute_enum {
   HIP_DEVICE_P2P_ATTRIBUTE_ARRAY_ACCESS_ACCESS_SUPPORTED = 0x04,
 } HIPdevice_P2PAttribute;
 
-typedef struct hipGraphicsResource_st* hipGraphicsResource;
+typedef struct hipGraphicsResource_st* hipGraphicsResource_t;
 
 typedef struct hip_Memcpy2D {
   size_t srcXInBytes;
@@ -808,14 +829,14 @@ typedef struct hip_Memcpy2D {
   hipMemoryType srcMemoryType;
   const void* srcHost;
   hipDeviceptr_t srcDevice;
-  hArray * srcArray;
+  hArray_t * srcArray;
   size_t srcPitch;
   size_t dstXInBytes;
   size_t dstY;
   hipMemoryType dstMemoryType;
   void* dstHost;
   hipDeviceptr_t dstDevice;
-  hArray * dstArray;
+  hArray_t * dstArray;
   size_t dstPitch;
   size_t WidthInBytes;
   size_t Height;
@@ -836,7 +857,7 @@ typedef struct HIP_MEMCPY3D {
   hipMemoryType srcMemoryType;
   const void* srcHost;
   hipDeviceptr_t srcDevice;
-  hArray srcArray;
+  hArray_t srcArray;
   unsigned int srcPitch;
   unsigned int srcHeight;
   unsigned int dstXInBytes;
@@ -846,7 +867,7 @@ typedef struct HIP_MEMCPY3D {
   hipMemoryType dstMemoryType;
   void* dstHost;
   hipDeviceptr_t dstDevice;
-  hArray dstArray;
+  hArray_t dstArray;
   unsigned int dstPitch;
   unsigned int dstHeight;
   unsigned int WidthInBytes;
@@ -862,7 +883,7 @@ typedef struct HIP_MEMCPY3D_PEER_st {
   hipMemoryType srcMemoryType;
   const void* srcHost;
   hipDeviceptr_t srcDevice;
-  hArray * srcArray;
+  hArray_t * srcArray;
   hipCtx_t srcContext;
   size_t srcPitch;
   size_t srcHeight;
@@ -873,7 +894,7 @@ typedef struct HIP_MEMCPY3D_PEER_st {
   hipMemoryType dstMemoryType;
   void* dstHost;
   hipDeviceptr_t dstDevice;
-  hArray * dstArray;
+  hArray_t * dstArray;
   hipCtx_t dstContext;
   size_t dstPitch;
   size_t dstHeight;
@@ -902,7 +923,7 @@ typedef struct HIP_RESOURCE_DESC_st {
   hipResourceType resType;
   union {
     struct {
-      hArray h_Array;
+      hArray_t hArray;
     } array;
     struct {
       hipMipmappedArray_t hMipmappedArray;
@@ -927,6 +948,8 @@ typedef struct HIP_RESOURCE_DESC_st {
   } res;
   unsigned int flags;
 } hipResourceDesc;
+
+typedef hipResourceDesc HIP_RESOURCE_DESC;
 
 /**
  * hip texture resource view formats
@@ -1022,10 +1045,9 @@ struct hipResourceViewDesc {
     unsigned int lastLayer;
 };
 
-
 typedef struct hipTextureDesc_st {
-  hipTextureAddressMode addressMode[3];
-  hipTextureFilterMode filterMode;
+  HIPaddress_mode_enum addressMode[3];
+  HIPfilter_mode filterMode;
   unsigned int flags;
   unsigned int maxAnisotropy;
   hipTextureFilterMode mipmapFilterMode;
@@ -1035,6 +1057,8 @@ typedef struct hipTextureDesc_st {
   float borderColor[4];
   int reserved[12];
 } hipTextureDesc;
+
+typedef hipTextureDesc HIP_TEXTURE_DESC;
 
 /**
  * Resource view descriptor
@@ -1249,9 +1273,9 @@ typedef hipError_t HIPAPI thipMemsetD32Async(hipDeviceptr_t dstDevice, unsigned 
 typedef hipError_t HIPAPI thipMemsetD2D8Async(hipDeviceptr_t dstDevice, size_t dstPitch, unsigned char uc, size_t Width, size_t Height, hipStream_t hStream);
 typedef hipError_t HIPAPI thipMemsetD2D16Async(hipDeviceptr_t dstDevice, size_t dstPitch, unsigned short us, size_t Width, size_t Height, hipStream_t hStream);
 typedef hipError_t HIPAPI thipMemsetD2D32Async(hipDeviceptr_t dstDevice, size_t dstPitch, unsigned int ui, size_t Width, size_t Height, hipStream_t hStream);
-typedef hipError_t HIPAPI thipArrayCreate(hArray ** pHandle, const HIP_ARRAY_DESCRIPTOR* pAllocateArray);
-typedef hipError_t HIPAPI thipArrayDestroy(hArray hArray);
-typedef hipError_t HIPAPI thipArray3DCreate(hArray * pHandle, const HIP_ARRAY3D_DESCRIPTOR* pAllocateArray);
+typedef hipError_t HIPAPI thipArrayCreate(hArray_t ** pHandle, const HIP_ARRAY_DESCRIPTOR* pAllocateArray);
+typedef hipError_t HIPAPI thipArrayDestroy(hArray_t hArray);
+typedef hipError_t HIPAPI thipArray3DCreate(hArray_t * pHandle, const HIP_ARRAY3D_DESCRIPTOR* pAllocateArray);
 typedef hipError_t HIPAPI thipPointerGetAttributes(hipPointerAttribute_t* attributes, const void* ptr);
 typedef hipError_t HIPAPI thipStreamCreate(hipStream_t* phStream);
 typedef hipError_t HIPAPI thipStreamCreateWithFlags(hipStream_t* phStream, unsigned int Flags);
@@ -1275,7 +1299,7 @@ typedef hipError_t HIPAPI thipModuleLaunchKernel(hipFunction_t f, unsigned int g
 typedef hipError_t HIPAPI thipDrvOccupancyMaxActiveBlocksPerMultiprocessor(int* numBlocks, hipFunction_t func, int blockSize, size_t dynamicSMemSize);
 typedef hipError_t HIPAPI thipDrvOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(int* numBlocks, hipFunction_t func, int blockSize, size_t dynamicSMemSize, unsigned int flags);
 typedef hipError_t HIPAPI thipModuleOccupancyMaxPotentialBlockSize(int* minGridSize, int* blockSize, hipFunction_t func, size_t dynamicSMemSize, int blockSizeLimit);
-typedef hipError_t HIPAPI thipTexRefSetArray(hipTexRef hTexRef, hArray * hArray, unsigned int Flags);
+typedef hipError_t HIPAPI thipTexRefSetArray(hipTexRef hTexRef, hArray_t * hArray, unsigned int Flags);
 typedef hipError_t HIPAPI thipTexRefSetAddress(size_t* ByteOffset, hipTexRef hTexRef, hipDeviceptr_t dptr, size_t bytes);
 typedef hipError_t HIPAPI thipTexRefSetAddress2D(hipTexRef hTexRef, const HIP_ARRAY_DESCRIPTOR* desc, hipDeviceptr_t dptr, size_t Pitch);
 typedef hipError_t HIPAPI thipTexRefSetFormat(hipTexRef hTexRef, hipArray_Format fmt, int NumPackedComponents);
@@ -1283,7 +1307,7 @@ typedef hipError_t HIPAPI thipTexRefSetAddressMode(hipTexRef hTexRef, int dim, h
 typedef hipError_t HIPAPI thipTexRefSetFilterMode(hipTexRef hTexRef, hipTextureFilterMode fm);
 typedef hipError_t HIPAPI thipTexRefSetFlags(hipTexRef hTexRef, unsigned int Flags);
 typedef hipError_t HIPAPI thipTexRefGetAddress(hipDeviceptr_t* pdptr, hipTexRef hTexRef);
-typedef hipError_t HIPAPI thipTexRefGetArray(hArray ** phArray, hipTexRef hTexRef);
+typedef hipError_t HIPAPI thipTexRefGetArray(hArray_t ** phArray, hipTexRef hTexRef);
 typedef hipError_t HIPAPI thipTexRefGetAddressMode(hipTextureAddressMode* pam, hipTexRef hTexRef, int dim);
 typedef hipError_t HIPAPI thipTexObjectCreate(hipTextureObject_t* pTexObject, const hipResourceDesc* pResDesc, const hipTextureDesc* pTexDesc, const HIP_RESOURCE_VIEW_DESC* pResViewDesc);
 typedef hipError_t HIPAPI thipTexObjectDestroy(hipTextureObject_t texObject);
@@ -1291,12 +1315,12 @@ typedef hipError_t HIPAPI thipDeviceCanAccessPeer(int* canAccessPeer, hipDevice_
 typedef hipError_t HIPAPI thipCtxEnablePeerAccess(hipCtx_t peerContext, unsigned int Flags);
 typedef hipError_t HIPAPI thipCtxDisablePeerAccess(hipCtx_t peerContext);
 typedef hipError_t HIPAPI thipDeviceGetP2PAttribute(int* value, hipDeviceP2PAttr attrib, hipDevice_t srcDevice, hipDevice_t dstDevice);
-typedef hipError_t HIPAPI thipGraphicsUnregisterResource(hipGraphicsResource resource);
-typedef hipError_t HIPAPI thipGraphicsResourceGetMappedMipmappedArray(hipMipmappedArray_t* pMipmappedArray, hipGraphicsResource resource);
-typedef hipError_t HIPAPI thipGraphicsResourceGetMappedPointer(hipDeviceptr_t* pDevPtr, size_t* pSize, hipGraphicsResource resource);
-typedef hipError_t HIPAPI thipGraphicsMapResources(unsigned int count, hipGraphicsResource* resources, hipStream_t hStream);
-typedef hipError_t HIPAPI thipGraphicsUnmapResources(unsigned int count, hipGraphicsResource* resources, hipStream_t hStream);
-typedef hipError_t HIPAPI thipGraphicsGLRegisterBuffer(hipGraphicsResource* pCudaResource, GLuint buffer, unsigned int Flags);
+typedef hipError_t HIPAPI thipGraphicsUnregisterResource(hipGraphicsResource_t resource);
+typedef hipError_t HIPAPI thipGraphicsResourceGetMappedMipmappedArray(hipMipmappedArray_t* pMipmappedArray, hipGraphicsResource_t resource);
+typedef hipError_t HIPAPI thipGraphicsResourceGetMappedPointer(hipDeviceptr_t* pDevPtr, size_t* pSize, hipGraphicsResource_t resource);
+typedef hipError_t HIPAPI thipGraphicsMapResources(unsigned int count, hipGraphicsResource_t* resources, hipStream_t hStream);
+typedef hipError_t HIPAPI thipGraphicsUnmapResources(unsigned int count, hipGraphicsResource_t* resources, hipStream_t hStream);
+typedef hipError_t HIPAPI thipGraphicsGLRegisterBuffer(hipGraphicsResource_t* pCudaResource, GLuint buffer, unsigned int Flags);
 typedef hipError_t HIPAPI thipGLGetDevices(unsigned int* pHipDeviceCount, int* pHipDevices, unsigned int hipDeviceCount, hipGLDeviceList deviceList);
 typedef hipError_t HIPAPI thipImportExternalMemory(hipExternalMemory_t* extMem_out, const hipExternalMemoryHandleDesc* memHandleDesc);
 typedef hipError_t HIPAPI thipExternalMemoryGetMappedBuffer(void **devPtr, hipExternalMemory_t extMem, const hipExternalMemoryBufferDesc *bufferDesc);
