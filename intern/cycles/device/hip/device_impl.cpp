@@ -791,7 +791,7 @@ void HIPDevice::tex_alloc(device_texture &mem)
       return;
     }
 
-    hip_assert(hipMemcpyHtoD(reinterpret_cast<hipDeviceptr_t*>(mem.device_pointer), mem.host_pointer, size));
+    hip_assert(hipMemcpyHtoD(reinterpret_cast<hipDeviceptr_t>(mem.device_pointer), mem.host_pointer, size));
   }
 
   /* Resize once */
