@@ -698,7 +698,16 @@ if(WITH_CYCLES_HIP_BINARIES AND WITH_CYCLES_DEVICE_HIP)
       -I ${CMAKE_CURRENT_SOURCE_DIR}/device/hip
       -Wno-parentheses-equality
       -Wno-unused-value
-      -ffast-math
+      -mllvm
+      -amdgpu-early-inline-all=true
+      -mllvm
+      -amdgpu-function-calls=false
+      -O3
+      --offload-device-only
+      -fno-math-errno
+      -fno-signed-zeros
+      -fno-trapping-math
+      -ffp-contract=fast
       ${hip_opt_flags}
       -o ${CMAKE_CURRENT_BINARY_DIR}/${hip_file})
 
